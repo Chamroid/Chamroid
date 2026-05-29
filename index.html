@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Мой VK Mini App</title>
+    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <style>
+        :root {
+            --bg: #f0f2f5; --card: #fff; --text: #000; --text2: #818c99;
+            --accent: #2688eb; --accent-h: #1a7de0; --border: #e7e8ec;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        [data-theme="dark"] {
+            --bg: #19191a; --card: #232324; --text: #e1e3e6; --text2: #76787a;
+            --border: #2c2d2e; --shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition:.3s; }
+        #app { max-width:480px; margin:0 auto; padding:16px; }
+        .header { text-align:center; padding:24px 0; }
+        .header h1 { font-size:24px; }
+        .card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:12px; box-shadow:var(--shadow); transition:.3s; }
+        .card h3 { font-size:15px; font-weight:600; margin-bottom:12px; }
+        .user { display:flex; align-items:center; gap:12px; }
+        .avatar { width:56px; height:56px; border-radius:50%; background:var(--border); background-size:cover; flex-shrink:0; }
+        .user h2 { font-size:16px; }
+        .user p { font-size:14px; color:var(--text2); }
+        .num { font-size:48px; font-weight:700; text-align:center; color:var(--accent); margin:16px 0; }
+        .row { display:flex; gap:8px; margin-bottom:8px; }
+        input { flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:15px; outline:none; }
+        input:focus { border-color:var(--accent); }
+        .btn { display:block; width:100%; padding:12px; border:none; border-radius:8px; font-size:15px; font-weight:500; cursor:pointer; transition:.2s; margin-bottom:8px; }
+        .btn:last-child { margin-bottom:0; }
+        .btn:active { transform:scale(0.98); }
+        .btn-p { background:var(--accent); color:#fff; }
+        .btn-p:active { background:var(--accent-h); }
+        .btn-s { background:var(--border); color:var(--text); }
+        .btn-g { background:transparent; color:var(--accent); }
+        .btn-g:active { background:rgba(38,136,235,0.1); }
+        p { font-size:14px; color:var(--text2); margin-bottom:12px; }
+        #saved { font-weight:600; color:var(--text); }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header"><h1>👋 Привет, VK!</h1></div>
+
+        <div class="card user">
+            <div class="avatar" id="avatar"></div>
+            <div>
+                <h2 id="name">Загрузка...</h2>
+                <p id="city">Город: —</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🎲 Случайное число</h3>
+            <div class="num" id="num">—</div>
+            <button class="btn btn-p" onclick="random()">Сгенерировать</button>
+        </div>
+
+        <div class="card">
+            <h3>💾 VK Storage</h3>
+            <p>Сохранено: <span id="saved">—</span></p>
+            <div class="row">
+                <input id="inp" placeholder="Введите текст...">
+                <button class="btn btn-s" onclick="save()" style="width:auto;flex-shrink:0">Сохранить</button>
+            </div>
+            <button class="btn btn-g" onclick="load()">Загрузить</button>
+        </div>
+
+        <div class="card">
+            <h3>📤 Поделиться</h3>
+            <button class="btn btn-p" onclick="share()">Поделиться</button>
+            <button class="btn btn-s" onclick="invite()">Пригласить друга</button>
+        </div>
+
+        <div class="card">
+            <h3>🎨 Тема: <span id="theme">—</span></h3>
+            <button class="btn btn-g" onclick="toggleTheme()">Переключить</button>
+        </div>
+    </div>
+
+    <script>
+        const B = window.vkBridge;
+        let theme = 'light';
+
+        async function init() {
+            try {
+                await B.send('VKWebAppInit');
+                const cfg = await B.send('VKWebAppGetConfig');
+                setTheme(cfg.appearance || 'light');
+                const u = await B.send('VKWebAppGetUserInfo');
+                document.getElementById('name').textContent = u.first_name + ' ' + u.last_name;
+                document.getElementById('city').textContent = u.city ? 'Город: ' + u.city.title : 'Город: не указан';
+                document.getElementById('avatar').style.backgroundImage = 'url(' + u.photo_200 + ')';
+                B.subscribe(e => { if(e.detail.type==='VKWebAppUpdateConfig') setTheme(e.detail.data.appearance); });
+            } catch(e) {
+                document.getElementById('name').textContent = 'Тестовый пользователь';
+                document.getElementById('city').textContent = 'Город: Москва';
+            }
+        }
+        function setTheme(t) { theme=t; document.documentElement.setAttribute('data-theme',t); document.getElementById('theme').textContent=t==='dark'?'Тёмная':'Светлая'; }
+        function toggleTheme() { setTheme(theme==='light'?'dark':'light'); }
+        function random() { document.getElementById('num').textContent = Math.floor(Math.random()*100)+1; B.send('VKWebAppTapticImpactOccurred',{style:'light'}).catch(()=>{}); }
+        async function save() { const v=document.getElementById('inp').value; if(!v.trim())return; await B.send('VKWebAppStorageSet',{key:'my_data',value:v}); document.getElementById('saved').textContent=v; document.getElementById('inp').value=''; B.send('VKWebAppShowToast',{type:'success',text:'Сохранено!'}).catch(()=>{}); }
+        async function load() { const r=await B.send('VKWebAppStorageGet',{keys:['my_data']}); document.getElementById('saved').textContent=r.keys[0]?.value||'—'; }
+        async function share() { await B.send('VKWebAppShare',{link:'https://vk.com/appYOUR_APP_ID'}); }
+        async function invite() { await B.send('VKWebAppShowInviteBox',{}); }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
